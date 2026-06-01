@@ -202,7 +202,7 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                           <p>Pressure: {log.weather_pressure} hPa</p>
                           {log.weather_aqi !== null && log.weather_aqi !== undefined && <p>AQI: {log.weather_aqi}</p>}
                           {log.weather_pm?.pm10 !== undefined && <p>PM10: {log.weather_pm.pm10} μg/m³</p>}
-                          {log.weather_pm?.pm25 !== undefined && <p>PM2.5: {log.weather_pm.pm25} μg/m³</p>}
+                          {log.weather_pm?.pm2_5 !== undefined && <p>PM2.5: {log.weather_pm.pm2_5} μg/m³</p>}
                         </div>
                       ) : (
                         <p className="text-slate-500 text-[10px]">No weather data</p>
