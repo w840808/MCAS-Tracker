@@ -205,9 +205,10 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                       tooltipAlignment,
                       selectedPointId === log.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                     )}>
-                      <p className="font-bold mb-1.5 text-indigo-300 border-b border-slate-700 pb-1">
-                        Score: {log.allergy_index} | {log.time_block}
-                      </p>
+                      <div className="font-bold mb-1.5 text-indigo-300 border-b border-slate-700 pb-1 flex justify-between gap-4">
+                        <span>Score: {log.allergy_index} | {log.time_block}</span>
+                        <span className="text-amber-300">Stress: {log.stress_level}</span>
+                      </div>
                       {hasWeather ? (
                         <div className="text-slate-300 text-[11px] space-y-1 mt-1.5">
                           <div className="flex justify-between gap-4"><span className="text-slate-400">Temp:</span> <span>{log.weather_temp}°C</span></div>
@@ -326,7 +327,7 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                       {new Date(log.created_at).toLocaleString([], { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">
-                      Score: {log.allergy_index} | {log.time_block} {log.is_flare_phase && '🔥 Flare'}
+                      Score: {log.allergy_index} | {log.time_block} | Stress: {log.stress_level} {log.is_flare_phase && '🔥 Flare'}
                     </p>
                   </div>
                   <div className="flex gap-2">
