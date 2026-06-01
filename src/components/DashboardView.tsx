@@ -171,11 +171,11 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                   </linearGradient>
                 </defs>
                 <polygon 
-                  points={`0,100 ${filteredLogs.map((log, i) => `${((i + 0.5) / filteredLogs.length) * 100},${100 - (log.allergy_index / 10) * 100}`).join(' ')} 100,100`} 
+                  points={`0,100 ${filteredLogs.map((log, i) => `${(i / (filteredLogs.length - 1 || 1)) * 100},${100 - (log.allergy_index / 10) * 100}`).join(' ')} 100,100`} 
                   fill="url(#area-gradient)" 
                 />
                 <polyline 
-                  points={filteredLogs.map((log, i) => `${((i + 0.5) / filteredLogs.length) * 100},${100 - (log.allergy_index / 10) * 100}`).join(' ')} 
+                  points={filteredLogs.map((log, i) => `${(i / (filteredLogs.length - 1 || 1)) * 100},${100 - (log.allergy_index / 10) * 100}`).join(' ')} 
                   fill="none" 
                   stroke="url(#line-gradient)" 
                   strokeWidth="3" 
@@ -194,7 +194,8 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                 return (
                   <div 
                     key={log.id} 
-                    className="relative flex flex-col items-center justify-end w-full h-full group z-10"
+                    className="relative flex flex-col items-center justify-end h-full group z-10"
+                    style={{ width: '0px' }}
                     onClick={() => setSelectedPointId(selectedPointId === log.id ? null : log.id)}
                   >
                     {/* Hover Tooltip with Weather Data */}
@@ -250,8 +251,8 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                       }}
                     />
                     
-                    {/* Invisible Hitbox for Hover */}
-                    <div className="w-full h-full absolute inset-0 z-10 cursor-pointer" />
+                    {/* Invisible Hitbox for Hover/Tap */}
+                    <div className="w-10 h-full absolute top-0 -left-5 z-10 cursor-pointer" />
                   </div>
                 );
               })}
@@ -263,7 +264,7 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                 const hasWeather = log.weather_temp !== null && log.weather_temp !== undefined;
                 const timeIcon = log.time_block === 'Morning' ? '🌅' : log.time_block === 'Afternoon' ? '☀️' : log.time_block === 'Evening' ? '🌇' : '🌙';
                 return (
-                  <div key={`date-${log.id}`} className="w-full flex flex-col items-center relative">
+                  <div key={`date-${log.id}`} className="relative flex flex-col items-center" style={{ width: '0px' }}>
                     <span className="text-[10px] text-slate-400 whitespace-nowrap transform -rotate-45 absolute top-1">
                       {new Date(log.created_at).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' })}
                     </span>
