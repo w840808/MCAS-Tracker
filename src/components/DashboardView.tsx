@@ -14,6 +14,7 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('14');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
+  const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   
   useEffect(() => {
     fetchLogs();
@@ -187,14 +188,21 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                 const hasRescue = log.meds_and_supps.some(m => m.type === 'rescue_medication');
                 const hasWeather = log.weather_temp !== null && log.weather_temp !== undefined;
                 return (
-                  <div key={log.id} className="relative flex flex-col items-center justify-end w-full h-full group z-10">
+                  <div 
+                    key={log.id} 
+                    className="relative flex flex-col items-center justify-end w-full h-full group z-10"
+                    onClick={() => setSelectedPointId(selectedPointId === log.id ? null : log.id)}
+                  >
                     {/* Background Highlight */}
                     {log.is_flare_phase && (
                       <div className="absolute bottom-0 w-full h-full bg-rose-500/10 -z-10" />
                     )}
                     
                     {/* Hover Tooltip with Weather Data */}
-                    <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-xs p-2 rounded border border-slate-600 z-30 whitespace-nowrap pointer-events-none shadow-xl">
+                    <div className={twMerge(
+                      "absolute bottom-full mb-2 transition-opacity bg-slate-800 text-xs p-2 rounded border border-slate-600 z-40 whitespace-nowrap pointer-events-none shadow-xl",
+                      selectedPointId === log.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    )}>
                       <p className="font-bold mb-1">Score: {log.allergy_index} | {new Date(log.created_at).toLocaleDateString()} | {log.time_block}</p>
                       {hasWeather ? (
                         <div className="text-slate-300 text-[10px] space-y-0.5">
