@@ -171,11 +171,11 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                   </linearGradient>
                 </defs>
                 <polygon 
-                  points={`0,100 ${filteredLogs.map((log, i) => `${(i / (filteredLogs.length - 1 || 1)) * 100},${100 - (log.allergy_index / 10) * 100}`).join(' ')} 100,100`} 
+                  points={`0,100 ${filteredLogs.map((log, i) => `${((i + 0.5) / filteredLogs.length) * 100},${100 - (log.allergy_index / 10) * 100}`).join(' ')} 100,100`} 
                   fill="url(#area-gradient)" 
                 />
                 <polyline 
-                  points={filteredLogs.map((log, i) => `${(i / (filteredLogs.length - 1 || 1)) * 100},${100 - (log.allergy_index / 10) * 100}`).join(' ')} 
+                  points={filteredLogs.map((log, i) => `${((i + 0.5) / filteredLogs.length) * 100},${100 - (log.allergy_index / 10) * 100}`).join(' ')} 
                   fill="none" 
                   stroke="url(#line-gradient)" 
                   strokeWidth="3" 
