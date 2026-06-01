@@ -23,6 +23,7 @@ export type MCASLog = {
   food_image_url?: string;
   meds_and_supps: { item: string; dose: string; type: 'daily_supplement' | 'rescue_medication' }[];
   stress_level: number;
+  sleep_quality?: number;
   menstrual_phase: 'Follicular' | 'Ovulation' | 'Luteal' | 'Menstruation' | 'None';
   weather_temp?: number;
   weather_humidity?: number;

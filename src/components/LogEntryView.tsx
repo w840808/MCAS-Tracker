@@ -1,8 +1,9 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Loader2, CloudRain, Save, Plus, AlertCircle, XCircle, Camera, X } from 'lucide-react';
+import { Loader2, CloudRain, Save, Plus, AlertCircle, XCircle, Camera, X, ChevronDown, ChevronUp, Copy, CheckCircle2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { analyzeAllergens } from '@/utils/allergenAnalyzer';
@@ -17,6 +18,7 @@ const TIME_BLOCKS = ['Morning', 'Afternoon', 'Evening', 'Night'];
 export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog | null, onClearEdit?: () => void }) {
   const [allergyIndex, setAllergyIndex] = useState(1);
   const [stressLevel, setStressLevel] = useState(1);
+  const [sleepQuality, setSleepQuality] = useState<number | null>(null);
   const [isFlarePhase, setIsFlarePhase] = useState(false);
   const [timeBlock, setTimeBlock] = useState(() => {
     const hour = new Date().getHours();
@@ -49,9 +51,13 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
   const [foodImagePreview, setFoodImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
   const [weatherFallback, setWeatherFallback] = useState(false);
   const [manualWeather, setManualWeather] = useState({ temp: '', humidity: '', pressure: '', uv: '', aqi: '' });
+
+  const [isSymptomsOpen, setIsSymptomsOpen] = useState(true);
+  const [isFoodsOpen, setIsFoodsOpen] = useState(true);
+  const [isMedsOpen, setIsMedsOpen] = useState(true);
 
   useEffect(() => {
     const savedSymptoms = localStorage.getItem('mcas_symptom_tags');
@@ -66,6 +72,7 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
     if (editingLog) {
       setAllergyIndex(editingLog.allergy_index);
       setStressLevel(editingLog.stress_level);
+      setSleepQuality(editingLog.sleep_quality || null);
       setIsFlarePhase(editingLog.is_flare_phase);
       setTimeBlock(editingLog.time_block);
       setMenstrualPhase(editingLog.menstrual_phase || 'None');
@@ -153,7 +160,7 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
     }
   };
 
-  const updateFood = (item: string, key: 'is_leftover'|'qty', val: any) => {
+  const updateFood = (item: string, key: 'is_leftover'|'qty', val: string | boolean) => {
     setSelectedFoods(prev => prev.map(f => f.item === item ? { ...f, [key]: val } : f));
   };
 
@@ -234,8 +241,32 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
     }
   };
 
+  const handleCopyPrevious = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('mcas_logs')
+        .select('symptoms, foods, meds_and_supps')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error || !data) {
+        alert('No previous record found.');
+        return;
+      }
+      
+      if (data.symptoms) setSelectedSymptoms(data.symptoms);
+      if (data.foods) setSelectedFoods(data.foods);
+      if (data.meds_and_supps) setSelectedMeds(data.meds_and_supps);
+      
+      if (navigator.vibrate) navigator.vibrate(50);
+    } catch (e) {
+      console.error('Error fetching previous log:', e);
+    }
+  };
+
   const handleSave = async () => {
-    setIsSaving(true);
+    setSaveStatus('saving');
     let weatherData = null;
 
     try {
@@ -250,7 +281,7 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
       console.warn('Weather API failed, using fallback if provided', e);
       if (!weatherFallback) {
         setWeatherFallback(true);
-        setIsSaving(false);
+        setSaveStatus('idle');
         alert('Weather API failed. Please fill manual weather data or try saving again.');
         return;
       }
@@ -285,12 +316,12 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
       const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
       const filePath = `public/${fileName}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('food-images')
         .upload(filePath, foodImageFile, { upsert: true });
 
       if (uploadError) {
-        setIsSaving(false);
+        setSaveStatus('idle');
         alert('Failed to upload image: ' + uploadError.message);
         return;
       }
@@ -309,33 +340,43 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
       food_image_url: finalImageUrl,
       meds_and_supps: selectedMeds,
       stress_level: stressLevel,
+      sleep_quality: timeBlock === 'Morning' ? sleepQuality : null,
       menstrual_phase: menstrualPhase,
       ...weatherData
     };
 
     if (editingLog) {
       const { error } = await supabase.from('mcas_logs').update(logData).eq('id', editingLog.id);
-      setIsSaving(false);
       if (error) {
+        setSaveStatus('idle');
         alert('Error updating record: ' + error.message);
       } else {
-        alert('Record updated successfully!');
-        if (onClearEdit) onClearEdit();
+        setSaveStatus('success');
+        if (navigator.vibrate) navigator.vibrate(50);
+        setTimeout(() => {
+          setSaveStatus('idle');
+          if (onClearEdit) onClearEdit();
+        }, 1500);
       }
     } else {
       const { error } = await supabase.from('mcas_logs').insert([logData]);
-      setIsSaving(false);
       if (error) {
+        setSaveStatus('idle');
         alert('Error saving record: ' + error.message);
       } else {
-        alert('Record saved successfully!');
-        setAllergyIndex(1);
-        setStressLevel(1);
-        setSelectedSymptoms([]);
-        setSelectedFoods([]);
-        setSelectedMeds([]);
-        setFoodImageFile(null);
-        setFoodImagePreview(null);
+        setSaveStatus('success');
+        if (navigator.vibrate) navigator.vibrate(50);
+        setTimeout(() => {
+          setSaveStatus('idle');
+          setAllergyIndex(1);
+          setStressLevel(1);
+          setSleepQuality(null);
+          setSelectedSymptoms([]);
+          setSelectedFoods([]);
+          setSelectedMeds([]);
+          setFoodImageFile(null);
+          setFoodImagePreview(null);
+        }, 1500);
       }
     }
   };
@@ -360,6 +401,15 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
           </button>
         )}
       </header>
+
+      {!editingLog && (
+        <button 
+          onClick={handleCopyPrevious}
+          className="w-full bg-slate-800/80 hover:bg-slate-700/80 text-indigo-400 border border-slate-700 rounded-xl py-3 flex items-center justify-center gap-2 font-bold transition-all active:scale-95 shadow-sm"
+        >
+          <Copy size={16} /> Copy Previous Entry
+        </button>
+      )}
 
       {/* Date & Time Block */}
       <div className="space-y-4">
@@ -422,6 +472,31 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
           />
         </div>
 
+        {timeBlock === 'Morning' && (
+          <div className="pt-4 border-t border-slate-700/50">
+            <div className="flex justify-between items-end mb-3">
+              <label className="text-sm font-semibold text-slate-300 block">Sleep Quality</label>
+              <span className="text-xl font-bold text-indigo-300">{sleepQuality || '-'} / 5</span>
+            </div>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map(rating => (
+                <button
+                  key={`sleep-${rating}`}
+                  onClick={() => setSleepQuality(rating)}
+                  className={twMerge(
+                    "flex-1 py-3 rounded-xl border font-bold transition-all flex justify-center items-center text-lg",
+                    sleepQuality && sleepQuality >= rating
+                      ? "bg-indigo-500/20 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)] grayscale-0"
+                      : "bg-slate-800/50 border-slate-700 hover:border-slate-600 grayscale opacity-50"
+                  )}
+                >
+                  ⭐
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2 border-t border-slate-700/50">
           <div>
             <p className="font-medium text-slate-200">Baseline Flare Phase</p>
@@ -442,10 +517,22 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
         </div>
       </div>
 
-      {/* Symptoms Tag Cloud */}
-      <div>
-        <label className="text-xs font-semibold text-slate-400 mb-3 block uppercase tracking-wider">Symptoms</label>
-        <div className="flex flex-wrap gap-2.5 mb-4">
+      {/* Symptoms Section */}
+      <div className="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 transition-all">
+        <div 
+          className="flex justify-between items-center cursor-pointer select-none"
+          onClick={() => setIsSymptomsOpen(!isSymptomsOpen)}
+        >
+          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+            <AlertCircle className="text-rose-400" size={16} /> Symptoms
+            {selectedSymptoms.length > 0 && <span className="bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full text-xs">{selectedSymptoms.length}</span>}
+          </h3>
+          <span className="text-slate-400">{isSymptomsOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
+        </div>
+        
+        {isSymptomsOpen && (
+          <div className="mt-5">
+            <div className="flex flex-wrap gap-2.5 mb-4">
           {symptomTags.map(s => (
             <button
               key={s} onClick={() => toggleSymptom(s)}
@@ -477,12 +564,26 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
             <Plus size={16} />
           </button>
         </div>
+          </div>
+        )}
       </div>
 
-      {/* Foods Tag Cloud */}
-      <div>
-        <div className="flex justify-between items-end mb-3">
-          <label className="text-xs font-semibold text-slate-400 block uppercase tracking-wider">Foods & Triggers</label>
+      {/* Foods Section */}
+      <div className="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 transition-all">
+        <div 
+          className="flex justify-between items-center cursor-pointer select-none"
+          onClick={() => setIsFoodsOpen(!isFoodsOpen)}
+        >
+          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+            🍕 Foods & Triggers
+            {selectedFoods.length > 0 && <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full text-xs">{selectedFoods.length}</span>}
+          </h3>
+          <span className="text-slate-400">{isFoodsOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
+        </div>
+        
+        {isFoodsOpen && (
+          <div className="mt-5">
+            <div className="flex justify-between items-end mb-3">
           <button 
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-full border border-emerald-500/20 transition-colors"
@@ -575,12 +676,26 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
             )}
           </div>
         ))}
+          </div>
+        )}
       </div>
 
-      {/* Meds Tag Cloud */}
-      <div>
-        <label className="text-xs font-semibold text-slate-400 mb-3 block uppercase tracking-wider">Meds & Supps</label>
-        <div className="flex flex-wrap gap-2.5 mb-4">
+      {/* Meds Section */}
+      <div className="bg-slate-800/40 p-5 rounded-2xl border border-slate-700/50 transition-all">
+        <div 
+          className="flex justify-between items-center cursor-pointer select-none"
+          onClick={() => setIsMedsOpen(!isMedsOpen)}
+        >
+          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+            💊 Meds & Supps
+            {selectedMeds.length > 0 && <span className="bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full text-xs">{selectedMeds.length}</span>}
+          </h3>
+          <span className="text-slate-400">{isMedsOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
+        </div>
+        
+        {isMedsOpen && (
+          <div className="mt-5">
+            <div className="flex flex-wrap gap-2.5 mb-4">
           {medTags.map(m => (
             <button
               key={m} onClick={() => addMed(m)}
@@ -639,6 +754,8 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
             </div>
           </div>
         ))}
+          </div>
+        )}
       </div>
 
       {/* Manual Weather Fallback */}
@@ -660,18 +777,28 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
       <div className="flex gap-3">
         {editingLog && onClearEdit && (
           <button 
-            onClick={onClearEdit} disabled={isSaving}
+            onClick={onClearEdit} disabled={saveStatus !== 'idle'}
             className="w-1/3 bg-slate-800 hover:bg-slate-700 text-white font-semibold py-4 rounded-xl shadow-lg border border-slate-700 transition-all active:scale-95"
           >
             Cancel
           </button>
         )}
         <button 
-          onClick={handleSave} disabled={isSaving}
-          className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+          onClick={handleSave} disabled={saveStatus !== 'idle'}
+          className={twMerge(
+            "flex-1 font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all duration-300",
+            saveStatus === 'success' 
+              ? "bg-emerald-500 text-white shadow-emerald-500/25 scale-100" 
+              : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-indigo-500/25 active:scale-95"
+          )}
         >
-          {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-          {isSaving ? 'Saving...' : (editingLog ? 'Update Record' : 'Save Record')}
+          {saveStatus === 'saving' && <Loader2 size={20} className="animate-spin" />}
+          {saveStatus === 'success' && <CheckCircle2 size={20} />}
+          {saveStatus === 'idle' && <Save size={20} />}
+          
+          {saveStatus === 'saving' ? 'Saving...' : 
+           saveStatus === 'success' ? 'Saved' : 
+           (editingLog ? 'Update Record' : 'Save Record')}
         </button>
       </div>
 

@@ -1,8 +1,9 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase, MCASLog } from '@/lib/supabase';
-import { Loader2, AlertTriangle, TrendingUp, Filter, Activity, Cloud, Search, Edit2, Trash2, X } from 'lucide-react';
+import { Loader2, AlertTriangle, TrendingUp, Filter, Activity, Cloud, Search, Edit2, Trash2, X, Coffee } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -15,12 +16,9 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'severe' | 'rescue' | 'weather'>('all');
   
-  useEffect(() => {
-    fetchLogs();
-  }, []);
-
-  const fetchLogs = async () => {
+  async function fetchLogs() {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('mcas_logs')
@@ -31,7 +29,13 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
       setLogs(data as MCASLog[]);
     }
     setIsLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchLogs();
+  }, []);
+
+
 
   const filteredLogs = useMemo(() => {
     if (timeWindow === 'all') return logs;
@@ -62,9 +66,29 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
         l.time_block.toLowerCase().includes(q)
       );
     }
+
+    if (activeFilter === 'severe') {
+      result = result.filter(l => l.allergy_index >= 7);
+    } else if (activeFilter === 'rescue') {
+      result = result.filter(l => l.meds_and_supps?.some(m => m.type === 'rescue_medication'));
+    } else if (activeFilter === 'weather') {
+      result = result.filter((l) => {
+        const isDustStorm = (l.weather_pm?.pm10 || 0) > 100 || (l.weather_aqi || 0) > 150;
+        let isPressureDrop = false;
+        const logIndex = logs.findIndex(orig => orig.id === l.id);
+        if (logIndex > 0) {
+           const prevLog = logs[logIndex - 1];
+           if (prevLog.weather_pressure && l.weather_pressure && prevLog.weather_pressure - l.weather_pressure >= 3) {
+             isPressureDrop = true;
+           }
+        }
+        return isDustStorm || isPressureDrop;
+      });
+    }
+
     // Reverse so newest is at top for the list view
     return [...result].reverse();
-  }, [filteredLogs, searchQuery]);
+  }, [filteredLogs, logs, searchQuery, activeFilter]);
 
   // Insight Engine Logic (Co-factor & Delayed Reaction)
   const insights = useMemo(() => {
@@ -106,8 +130,26 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
       cards.push(`Co-factor detected: High stress coincides with your flare phases. Consider adding stress-reduction techniques to your daily routine.`);
     }
 
+    // Positive Insights: Identify well-tolerated foods
+    const foodCounts: Record<string, { total: number; safe: number }> = {};
+    filteredLogs.forEach(log => {
+      log.foods?.forEach(f => {
+        if (!foodCounts[f.item]) foodCounts[f.item] = { total: 0, safe: 0 };
+        foodCounts[f.item].total++;
+        if (log.allergy_index <= 3) foodCounts[f.item].safe++;
+      });
+    });
+
+    const safeFoods = Object.entries(foodCounts)
+      .filter(([_, stats]) => stats.total >= 2 && stats.safe === stats.total)
+      .map(([item]) => item);
+
+    if (safeFoods.length > 0) {
+      cards.push(`✅ Good News! ${safeFoods.join(', ')} ${safeFoods.length > 1 ? 'are' : 'is'} well-tolerated recently. Enjoy your safe foods!`);
+    }
+
     if (cards.length === 0 && !hasHugeSpike) {
-      cards.push("Your histamine bucket looks relatively stable. Great job managing triggers!");
+      cards.push("✅ Your histamine bucket looks relatively stable. Great job managing triggers!");
     }
 
     return cards;
@@ -156,7 +198,13 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
         </h2>
         
         {filteredLogs.length === 0 ? (
-          <p className="text-xs text-slate-500 py-10 text-center">No data for this time window.</p>
+          <div className="flex flex-col items-center justify-center py-10 px-4 text-center space-y-3 bg-slate-800/30 rounded-xl border border-slate-700/50 mt-4">
+            <div className="bg-slate-800/80 p-4 rounded-full text-emerald-400 mb-1">
+              <Coffee size={32} />
+            </div>
+            <p className="text-slate-200 font-bold text-lg">No flare-ups recorded!</p>
+            <p className="text-slate-400 text-sm">Enjoy the peace in this period.</p>
+          </div>
         ) : (
           <div className="w-full flex flex-col mt-4">
             {/* Chart Area */}
@@ -302,11 +350,19 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
         <h2 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
           <TrendingUp size={16} className="text-indigo-400" /> Dynamic Insights
         </h2>
-        {insights.map((insight, i) => (
-          <div key={i} className="bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border border-indigo-500/20 p-4 rounded-xl">
-            <p className="text-sm text-indigo-100 leading-relaxed">{insight}</p>
-          </div>
-        ))}
+        {insights.map((insight, i) => {
+          const isPositive = insight.includes('✅');
+          return (
+            <div key={i} className={twMerge(
+              "border p-4 rounded-xl",
+              isPositive 
+                ? "bg-gradient-to-br from-emerald-900/40 to-teal-900/40 border-emerald-500/20 text-emerald-100" 
+                : "bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border-indigo-500/20 text-indigo-100"
+            )}>
+              <p className="text-sm leading-relaxed">{insight}</p>
+            </div>
+          );
+        })}
       </div>
 
       {/* History & Database */}
@@ -328,10 +384,38 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
           <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
         </div>
 
+        {/* Quick Filter Chips */}
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 hide-scrollbar">
+          <button 
+            onClick={() => setActiveFilter(activeFilter === 'severe' ? 'all' : 'severe')}
+            className={twMerge("shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all", activeFilter === 'severe' ? "bg-rose-500/20 border-rose-500 text-rose-300" : "bg-slate-800 border-slate-700 text-slate-400")}
+          >
+            🚨 Severe
+          </button>
+          <button 
+            onClick={() => setActiveFilter(activeFilter === 'rescue' ? 'all' : 'rescue')}
+            className={twMerge("shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all", activeFilter === 'rescue' ? "bg-cyan-500/20 border-cyan-500 text-cyan-300" : "bg-slate-800 border-slate-700 text-slate-400")}
+          >
+            💊 Rescue Meds
+          </button>
+          <button 
+            onClick={() => setActiveFilter(activeFilter === 'weather' ? 'all' : 'weather')}
+            className={twMerge("shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all", activeFilter === 'weather' ? "bg-sky-500/20 border-sky-500 text-sky-300" : "bg-slate-800 border-slate-700 text-slate-400")}
+          >
+            🌪️ Weather Anomaly
+          </button>
+        </div>
+
         {/* Log Cards */}
         <div className="space-y-3">
           {displayLogs.length === 0 ? (
-            <p className="text-center text-sm text-slate-500 py-6">No matching records found.</p>
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center space-y-3 bg-slate-800/30 rounded-xl border border-slate-700/50">
+              <div className="bg-slate-800/80 p-3 rounded-full text-slate-400 mb-1">
+                <Coffee size={24} />
+              </div>
+              <p className="text-slate-300 font-medium">No matching records found.</p>
+              <p className="text-slate-500 text-sm">Enjoy the peace!</p>
+            </div>
           ) : (
             displayLogs.map(log => (
               <div key={log.id} className="bg-slate-800/80 border border-slate-600/50 shadow-lg rounded-xl p-4 flex flex-col gap-3 relative group transition-all hover:bg-slate-700/80">
