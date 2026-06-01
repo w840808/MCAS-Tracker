@@ -152,14 +152,7 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
             {/* Chart Area */}
             <div className="pt-8">
               <div className="relative h-36 w-full flex items-end justify-between border-b border-slate-700/50">
-                {/* Threshold & Grid Lines */}
-              <div className="absolute top-[30%] left-0 w-full border-t-2 border-rose-500/50 border-dashed z-0" />
-              <span className="absolute top-[30%] -mt-4 left-0 text-[10px] text-rose-400 font-bold z-0">Threshold (7)</span>
-              
-              <div className="absolute top-[50%] left-0 w-full border-t border-slate-700/30 border-dashed z-0" />
-              <span className="absolute top-[50%] -mt-4 left-0 text-[10px] text-slate-500 font-medium z-0">5</span>
-
-              {/* Area Chart Background */}
+                {/* Area Chart Background */}
               <svg className="absolute inset-0 h-full w-full pointer-events-none z-0" preserveAspectRatio="none" viewBox="0 0 100 100">
                 <defs>
                   <linearGradient id="area-gradient" x1="0" x2="0" y1="0" y2="1">
