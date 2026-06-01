@@ -9,7 +9,7 @@ import { analyzeAllergens } from '@/utils/allergenAnalyzer';
 import { MCASLog } from '@/lib/supabase';
 
 const DEFAULT_SYMPTOM_TAGS = ['Flushing', 'Hives', 'Brain Fog', 'Fatigue', 'Tachycardia', 'GI Pain', 'Nausea', 'Headache'];
-const DEFAULT_FOOD_TAGS = ['High Histamine Food', 'Dairy', 'Gluten', 'Sugar', 'Caffeine', 'Alcohol', 'Nightshades'];
+const DEFAULT_FOOD_TAGS = ['Dairy', 'Gluten', 'Sugar', 'Caffeine', 'Alcohol', 'Nightshades', 'Fermented'];
 const DEFAULT_MED_TAGS = ['H1 Blocker', 'H2 Blocker', 'Cromolyn', 'Quercetin', 'Vitamin C', 'DAO Enzyme'];
 const MENSTRUAL_PHASES = ['None', 'Follicular', 'Ovulation', 'Luteal', 'Menstruation'];
 const TIME_BLOCKS = ['Morning', 'Afternoon', 'Evening', 'Night'];
@@ -18,7 +18,13 @@ export function LogEntryView({ editingLog, onClearEdit }: { editingLog?: MCASLog
   const [allergyIndex, setAllergyIndex] = useState(1);
   const [stressLevel, setStressLevel] = useState(1);
   const [isFlarePhase, setIsFlarePhase] = useState(false);
-  const [timeBlock, setTimeBlock] = useState('Morning');
+  const [timeBlock, setTimeBlock] = useState(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Morning';
+    if (hour < 17) return 'Afternoon';
+    if (hour < 21) return 'Evening';
+    return 'Night';
+  });
   const [menstrualPhase, setMenstrualPhase] = useState('None');
   const [logDate, setLogDate] = useState<string>(() => {
     const now = new Date();

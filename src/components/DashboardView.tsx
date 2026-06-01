@@ -71,6 +71,18 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
     const cards: string[] = [];
     if (filteredLogs.length < 3) return ["Not enough data for insights yet. Keep logging!"];
 
+    let hasHugeSpike = false;
+    for (let i = 1; i < filteredLogs.length; i++) {
+      if (filteredLogs[i].allergy_index - filteredLogs[i - 1].allergy_index >= 3) {
+        hasHugeSpike = true;
+        break;
+      }
+    }
+
+    if (hasHugeSpike) {
+      cards.push(`🚨 劇烈波動警告 (Delta ≥ 3)：偵測到過敏指數在短時間內異常飆升。請檢查飆升點的氣象變化（如氣壓驟降、沙塵暴）或當下攝取的高風險食物。`);
+    }
+
     let highStressCount = 0;
     let totalFlares = 0;
     let rescueMedUsage = 0;
@@ -81,8 +93,6 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
       if (log.meds_and_supps.some(m => m.type === 'rescue_medication')) rescueMedUsage++;
     });
 
-    // Time-Lag Logic: Find if allergy_index >= 7 was preceded by specific triggers in last 48h
-    // (Simplified for MVP, would normally group by user/time precisely)
     const flareLogs = filteredLogs.filter(l => l.allergy_index >= 7);
     if (flareLogs.length > 0) {
       cards.push(`Recent Trend: Found ${flareLogs.length} high-severity events in the selected window.`);
@@ -96,7 +106,7 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
       cards.push(`Co-factor detected: High stress coincides with your flare phases. Consider adding stress-reduction techniques to your daily routine.`);
     }
 
-    if (cards.length === 0) {
+    if (cards.length === 0 && !hasHugeSpike) {
       cards.push("Your histamine bucket looks relatively stable. Great job managing triggers!");
     }
 
@@ -266,9 +276,19 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                     </span>
                     <span className="absolute top-6 text-[10px] drop-shadow-sm">{timeIcon}</span>
                     {/* Small Weather Icon indicator */}
-                    {hasWeather && (
-                      <Cloud size={10} className="text-sky-400/50 absolute top-10" />
-                    )}
+                    {hasWeather && (() => {
+                      const prevLog = i > 0 ? filteredLogs[i-1] : null;
+                      const isPressureDrop = prevLog && prevLog.weather_pressure && log.weather_pressure && (prevLog.weather_pressure - log.weather_pressure >= 3);
+                      const isDustStorm = (log.weather_pm?.pm10 || 0) > 100 || (log.weather_aqi || 0) > 150;
+                      
+                      if (isDustStorm) {
+                        return <span className="absolute top-10 text-[10px] drop-shadow-sm" title="Dust Storm / Bad AQI">😷</span>;
+                      }
+                      if (isPressureDrop) {
+                        return <span className="absolute top-10 text-[10px] drop-shadow-sm text-sky-300 font-bold" title="Pressure Drop">⬇️</span>;
+                      }
+                      return <Cloud size={10} className="text-sky-400/50 absolute top-10" />;
+                    })()}
                   </div>
                 );
               })}
@@ -303,8 +323,9 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
             placeholder="Search symptoms, foods, meds..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-slate-200 placeholder:text-slate-500 transition-all"
+            className="w-full bg-slate-800/80 border border-slate-700 rounded-xl pl-10 pr-10 py-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-slate-200 placeholder:text-slate-500 transition-all"
           />
+          <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
         </div>
 
         {/* Log Cards */}
@@ -313,7 +334,7 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
             <p className="text-center text-sm text-slate-500 py-6">No matching records found.</p>
           ) : (
             displayLogs.map(log => (
-              <div key={log.id} className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex flex-col gap-3 relative group transition-colors hover:bg-slate-800/60">
+              <div key={log.id} className="bg-slate-800/80 border border-slate-600/50 shadow-lg rounded-xl p-4 flex flex-col gap-3 relative group transition-all hover:bg-slate-700/80">
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-bold text-slate-200">
