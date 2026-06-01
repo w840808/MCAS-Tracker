@@ -150,8 +150,9 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
         ) : (
           <div className="w-full flex flex-col mt-4">
             {/* Chart Area */}
-            <div className="relative h-44 w-full flex items-end justify-between border-b border-slate-700/50 pt-8">
-              {/* Threshold & Grid Lines */}
+            <div className="pt-8">
+              <div className="relative h-36 w-full flex items-end justify-between border-b border-slate-700/50">
+                {/* Threshold & Grid Lines */}
               <div className="absolute top-[30%] left-0 w-full border-t-2 border-rose-500/50 border-dashed z-0" />
               <span className="absolute top-[30%] -mt-4 left-0 text-[10px] text-rose-400 font-bold z-0">Threshold (7)</span>
               
@@ -256,6 +257,7 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                   </div>
                 );
               })}
+              </div>
             </div>
             
             {/* X-Axis Dates Area */}
