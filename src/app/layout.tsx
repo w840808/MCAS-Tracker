@@ -1,16 +1,22 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: '狐狸的專屬日記 | MCAS Tracker',
   description: 'Zero-friction MCAS symptom tracking and analysis.',
+  appleWebApp: {
+    capable: true,
+    title: 'MCAS Tracker',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: '#0f172a',
 };
 
 export default function RootLayout({
