@@ -187,33 +187,35 @@ export function DashboardView({ onEditLog }: { onEditLog?: (log: MCASLog) => voi
                 const height = `${(log.allergy_index / 10) * 100}%`;
                 const hasRescue = log.meds_and_supps.some(m => m.type === 'rescue_medication');
                 const hasWeather = log.weather_temp !== null && log.weather_temp !== undefined;
+                const isEdgeLeft = i <= 1;
+                const isEdgeRight = i >= filteredLogs.length - 2;
+                const tooltipAlignment = isEdgeLeft ? 'left-0' : isEdgeRight ? 'right-0' : 'left-1/2 -translate-x-1/2';
+
                 return (
                   <div 
                     key={log.id} 
                     className="relative flex flex-col items-center justify-end w-full h-full group z-10"
                     onClick={() => setSelectedPointId(selectedPointId === log.id ? null : log.id)}
                   >
-                    {/* Background Highlight */}
-                    {log.is_flare_phase && (
-                      <div className="absolute bottom-0 w-full h-full bg-rose-500/10 -z-10" />
-                    )}
-                    
                     {/* Hover Tooltip with Weather Data */}
                     <div className={twMerge(
-                      "absolute bottom-full mb-2 transition-opacity bg-slate-800 text-xs p-2 rounded border border-slate-600 z-40 whitespace-nowrap pointer-events-none shadow-xl",
+                      "absolute bottom-full mb-2 transition-opacity bg-slate-800 text-xs p-3 rounded-xl border border-slate-600 z-[100] w-max max-w-[220px] pointer-events-none shadow-2xl",
+                      tooltipAlignment,
                       selectedPointId === log.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                     )}>
-                      <p className="font-bold mb-1">Score: {log.allergy_index} | {new Date(log.created_at).toLocaleDateString()} | {log.time_block}</p>
+                      <p className="font-bold mb-1.5 text-indigo-300 border-b border-slate-700 pb-1">
+                        Score: {log.allergy_index} | {log.time_block}
+                      </p>
                       {hasWeather ? (
-                        <div className="text-slate-300 text-[10px] space-y-0.5">
-                          <p>Temp: {log.weather_temp}°C</p>
-                          <p>Pressure: {log.weather_pressure} hPa</p>
-                          {log.weather_aqi !== null && log.weather_aqi !== undefined && <p>AQI: {log.weather_aqi}</p>}
-                          {log.weather_pm?.pm10 !== undefined && <p>PM10: {log.weather_pm.pm10} μg/m³</p>}
-                          {log.weather_pm?.pm2_5 !== undefined && <p>PM2.5: {log.weather_pm.pm2_5} μg/m³</p>}
+                        <div className="text-slate-300 text-[11px] space-y-1 mt-1.5">
+                          <div className="flex justify-between gap-4"><span className="text-slate-400">Temp:</span> <span>{log.weather_temp}°C</span></div>
+                          <div className="flex justify-between gap-4"><span className="text-slate-400">Press:</span> <span>{log.weather_pressure} hPa</span></div>
+                          {log.weather_aqi !== null && log.weather_aqi !== undefined && <div className="flex justify-between gap-4"><span className="text-slate-400">AQI:</span> <span>{log.weather_aqi}</span></div>}
+                          {log.weather_pm?.pm10 !== undefined && <div className="flex justify-between gap-4"><span className="text-slate-400">PM10:</span> <span>{log.weather_pm.pm10}</span></div>}
+                          {log.weather_pm?.pm2_5 !== undefined && <div className="flex justify-between gap-4"><span className="text-slate-400">PM2.5:</span> <span>{log.weather_pm.pm2_5}</span></div>}
                         </div>
                       ) : (
-                        <p className="text-slate-500 text-[10px]">No weather data</p>
+                        <p className="text-slate-500 text-[10px] mt-1">No weather data</p>
                       )}
                     </div>
 
